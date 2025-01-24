@@ -1,4 +1,4 @@
-// filepath: /typescript-express-app/src/index.ts
+// filepath: src/index.ts
 import express from 'express';
 
 const app = express();

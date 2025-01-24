@@ -1,3 +1,4 @@
+# filepath: /Users/sandromacbook/Documents/Github/MCAS-Controller-Docker/Dockerfile
 # Étape 1 : Utiliser une image Node.js officielle comme base
 FROM node:18-alpine
 
@@ -11,14 +12,14 @@ COPY tsconfig.json ./
 # Étape 4 : Installer les dépendances
 RUN npm install
 
-# Étape 5 : Copier le reste du code dans le conteneur
+# Étape 5 : Copier le reste du code dans le conteneur, en excluant node_modules
 COPY . .
 
 # Étape 6 : Compiler le TypeScript en JavaScript
-#RUN npm run build
+RUN npx tsc
 
 # Étape 7 : Spécifier la commande pour exécuter l'application
-CMD ["node", "src/index.ts"]
+CMD ["node", "dist/index.js"]
 
 # Étape 8 : Exposer le port utilisé par l'application (facultatif, selon ton app)
 EXPOSE 8443
