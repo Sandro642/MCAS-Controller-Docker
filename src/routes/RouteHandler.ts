@@ -9,7 +9,7 @@ export interface RouteProperties {
 }
 
 export function registerAllRoutes(app: express.Application) {
-  const definitionsPath = path.join(__dirname, '/v1/definition');
+  const definitionsPath = path.join(__dirname, 'definition');
 
   if (!fs.existsSync(definitionsPath)) {
     console.warn(`Definitions directory not found: ${definitionsPath}`);
@@ -19,9 +19,16 @@ export function registerAllRoutes(app: express.Application) {
   const definitionFiles = fs.readdirSync(definitionsPath).filter(file => file.endsWith('.js'));
 
   const routes: RouteProperties[] = [];
+  const undefinedRoutes: string[] = [];
 
   definitionFiles.forEach(file => {
     const routeDefinition = require(path.join(definitionsPath, file)).default as RouteProperties;
+
+    if (!routeDefinition || !routeDefinition.method || !routeDefinition.url || !routeDefinition.handler) {
+      undefinedRoutes.push(file);
+      return;
+    }
+
     routes.push(routeDefinition);
 
     switch (routeDefinition.method.toLowerCase()) {
@@ -55,4 +62,11 @@ export function registerAllRoutes(app: express.Application) {
   routes.forEach(route => {
     console.log(`${route.method.toUpperCase()} ${route.url}`);
   });
+
+  if (undefinedRoutes.length > 0) {
+    console.warn('The following route files are not properly defined:');
+    undefinedRoutes.forEach(file => {
+      console.warn(`- ${file}`);
+    });
+  }
 }
