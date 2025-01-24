@@ -6,7 +6,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "docker:build": "docker build -t mcas-controller-docker .",
-    "docker:run": "docker run -p 8443:8443 mcas-controller-docker"
+    "docker:run": "docker run -p 8443:8443 mcas-controller-docker",
+    "docker:clean": "docker system prune -a --volumes"
   },
   "dependencies": {
     "colors": "^1.4.0",
