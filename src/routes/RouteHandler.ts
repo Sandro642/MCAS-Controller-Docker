@@ -9,7 +9,7 @@ export interface RouteProperties {
 }
 
 export function registerAllRoutes(app: express.Application) {
-  const definitionsPath = path.join(__dirname, 'definition');
+  const definitionsPath = path.join(__dirname, 'v1/definition');
 
   if (!fs.existsSync(definitionsPath)) {
     console.warn(`Definitions directory not found: ${definitionsPath}`);
