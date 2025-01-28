@@ -1,72 +1,89 @@
 import path from 'path';
 import fs from 'fs';
 import express from 'express';
+import { getAllFilesRecursive } from '../utils/fileUtils';
+import Logger from '../utils/logger';
+import Joi from 'joi';
+
+const logger = new Logger();
 
 export interface RouteProperties {
   method: 'get' | 'post' | 'put' | 'delete' | 'patch' | 'options' | 'head';
   url: string;
   handler: express.RequestHandler;
+  enabled: boolean;
+  schema?: any;
 }
 
+const directoryPath = path.resolve(__dirname);
+
+/**
+ * Register all routes by searching for all files in the definition folder and register them
+ * @param app The express instance
+ */
 export function registerAllRoutes(app: express.Application) {
-  const definitionsPath = path.join(__dirname, 'v1/definition');
+  fs.readdirSync(directoryPath).forEach((file) => {
+    if (!fs.statSync(path.join(directoryPath, file)).isDirectory()) return;
 
-  if (!fs.existsSync(definitionsPath)) {
-    console.warn(`Definitions directory not found: ${definitionsPath}`);
-    return;
-  }
+    const routeFiles = getAllFilesRecursive(path.join(directoryPath, file, 'definition')).filter((file) => file.endsWith('.ts'));
 
-  const definitionFiles = fs.readdirSync(definitionsPath).filter(file => file.endsWith('.js'));
+    for (const routeFile of routeFiles) {
+      const route = require(routeFile);
 
-  const routes: RouteProperties[] = [];
-  const undefinedRoutes: string[] = [];
+      const routeProperties: RouteProperties = route.default;
+      if (!routeProperties) {
+        logger.warn(`La route ${routeFile} n'a pas d'export par défaut, elle est ignorée.`);
+        continue;
+      }
 
-  definitionFiles.forEach(file => {
-    const routeDefinition = require(path.join(definitionsPath, file)).default as RouteProperties;
+      if (!routeProperties.enabled) {
+        logger.warn(`Note: La route ${routeFile} est désactivée.`);
+        continue;
+      }
 
-    if (!routeDefinition || !routeDefinition.method || !routeDefinition.url || !routeDefinition.handler) {
-      undefinedRoutes.push(file);
-      return;
-    }
+      try {
+        const handler = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+          if (routeProperties.schema) {
+            const { error } = Joi.object(routeProperties.schema.response[200]).validate(req.body);
+            if (error) {
+              return res.status(400).send(error.details);
+            }
+          }
+          routeProperties.handler(req, res, next);
+        };
 
-    routes.push(routeDefinition);
+        switch (routeProperties.method.toLowerCase()) {
+          case 'get':
+            app.get(routeProperties.url, handler);
+            break;
+          case 'post':
+            app.post(routeProperties.url, handler);
+            break;
+          case 'put':
+            app.put(routeProperties.url, handler);
+            break;
+          case 'delete':
+            app.delete(routeProperties.url, handler);
+            break;
+          case 'patch':
+            app.patch(routeProperties.url, handler);
+            break;
+          case 'options':
+            app.options(routeProperties.url, handler);
+            break;
+          case 'head':
+            app.head(routeProperties.url, handler);
+            break;
+          default:
+            throw new Error(`Unsupported method: ${routeProperties.method}`);
+        }
+      } catch (e) {
+        logger.error(`Erreur lors de l'enregistrement de la route ${routeProperties.method.toUpperCase()} ${routeProperties.url}`);
+        console.error(e);
+        continue;
+      }
 
-    switch (routeDefinition.method.toLowerCase()) {
-      case 'get':
-        app.get(routeDefinition.url, routeDefinition.handler);
-        break;
-      case 'post':
-        app.post(routeDefinition.url, routeDefinition.handler);
-        break;
-      case 'put':
-        app.put(routeDefinition.url, routeDefinition.handler);
-        break;
-      case 'delete':
-        app.delete(routeDefinition.url, routeDefinition.handler);
-        break;
-      case 'patch':
-        app.patch(routeDefinition.url, routeDefinition.handler);
-        break;
-      case 'options':
-        app.options(routeDefinition.url, routeDefinition.handler);
-        break;
-      case 'head':
-        app.head(routeDefinition.url, routeDefinition.handler);
-        break;
-      default:
-        throw new Error(`Unsupported method: ${routeDefinition.method}`);
+      logger.info(`Enregistrement de la route ${routeProperties.method.toUpperCase()} ${routeProperties.url}`);
     }
   });
-
-  console.log('Available routes:');
-  routes.forEach(route => {
-    console.log(`${route.method.toUpperCase()} ${route.url}`);
-  });
-
-  if (undefinedRoutes.length > 0) {
-    console.warn('The following route files are not properly defined:');
-    undefinedRoutes.forEach(file => {
-      console.warn(`- ${file}`);
-    });
-  }
 }
