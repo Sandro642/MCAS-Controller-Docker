@@ -25,7 +25,7 @@ export function registerAllRoutes(app: express.Application) {
   fs.readdirSync(directoryPath).forEach((file) => {
     if (!fs.statSync(path.join(directoryPath, file)).isDirectory()) return;
 
-    const routeFiles = getAllFilesRecursive(path.join(directoryPath, file, 'definition')).filter((file) => file.endsWith('.ts'));
+    const routeFiles = getAllFilesRecursive(path.join(directoryPath, file, 'definition')).filter((file) => file.endsWith('.js'));
 
     for (const routeFile of routeFiles) {
       const route = require(routeFile);
